@@ -16,7 +16,6 @@ if uploaded_file:
     df = pd.read_excel(uploaded_file)
     st.write("데이터 샘플:", df.head())
 
-    # 컬럼명, 변수명 맞춤
     numeric_cols = ['top_tprt', 'avg_hmd', 'ave_wdsp', 'de_rnfl_qy']
     target_col = 'frfire_ocrn_nt'
 
@@ -26,14 +25,20 @@ if uploaded_file:
         df[col] = df[col].fillna(df[col].mean())
     df[target_col] = (df[target_col] > 0).astype(int)
 
-    # 데이터 개수 체크
     st.write(f"분석에 사용할 데이터 행 수: {df.shape[0]}")
-    if df.shape[0] == 0:
-        st.error("모델 학습/평가에 사용할 데이터가 없습니다. 결측치, 변수명을 확인하세요.")
-        st.stop()
-
     X = df[numeric_cols]
     y = df[target_col]
+
+    # ★ y에 클래스가 두 종류(0,1) 모두 있는지 체크
+    n_class = y.nunique()
+    st.write(f"타겟(산불발생여부) 값 종류: {y.unique()} (개수: {n_class})")
+    if n_class < 2:
+        st.error(
+            f"예측 및 평가 불가: 타겟 변수({target_col})에 '{y.unique()[0]}' 한 종류만 존재합니다!\n"
+            "산불 미발생(0) 혹은 발생(1) 케이스가 모두 있어야 혼동행렬/ROC Curve가 출력됩니다.\n"
+            "※ 산불이 실제로 발생한(값이 1인) 데이터가 포함된 파일을 사용해주세요."
+        )
+        st.stop()
 
     # 모델 학습
     rf = RandomForestClassifier(n_estimators=100, random_state=42)
@@ -43,7 +48,6 @@ if uploaded_file:
     xgb_model = xgb.XGBClassifier(n_estimators=100, use_label_encoder=False, eval_metric='logloss')
     xgb_model.fit(X, y)
 
-    # 예측 및 예측확률
     y_pred_rf = rf.predict(X)
     y_pred_lr = lr.predict(X)
     y_pred_xgb = xgb_model.predict(X)
@@ -51,7 +55,6 @@ if uploaded_file:
     y_proba_lr = lr.predict_proba(X)[:, 1]
     y_proba_xgb = xgb_model.predict_proba(X)[:, 1]
 
-    # 탭 구조
     tab2, tab3, tab4 = st.tabs(["🌳 RandomForest", "📈 LogisticRegression", "🚀 XGBoost"])
 
     def show_model_results(y_true, y_pred, y_prob, model_name, feature_importances=None):
@@ -100,4 +103,3 @@ if uploaded_file:
 
 else:
     st.info("먼저 데이터를 업로드하세요.")
-
