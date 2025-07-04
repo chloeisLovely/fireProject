@@ -35,10 +35,26 @@ if uploaded_file:
         (df[lon_col] > 124) & (df[lon_col] < 132)
     ]
 
+    st.write(f"모델 학습 데이터 행 수: {df.shape[0]}")
+    st.write(df[[lat_col, lon_col]].head())
+
+    if df.shape[0] == 0:
+        st.error(
+            "분석/지도를 위한 데이터가 없습니다!\n"
+            "원인:\n"
+            "- 위경도(lon_lo, lat_la) 결측치\n"
+            "- 대한민국 범위 벗어남\n"
+            "- 결측치 처리 이후 남은 데이터 없음\n\n"
+            "▶ 반드시 위경도 데이터가 포함된 파일을 사용하거나, "
+            "좌표가 1개 이상 있는지 확인하세요."
+        )
+        st.stop()
+
     features = numeric_cols
     X = df[features]
     y = df[target_col]
 
+    # ------------- (이하 기존 코드와 동일) -------------
     # 모델 학습
     rf = RandomForestClassifier(n_estimators=100, random_state=42)
     rf.fit(X, y)
@@ -56,7 +72,6 @@ if uploaded_file:
     y_proba_xgb = xgb_model.predict_proba(X)[:, 1]
     df["risk_proba"] = y_proba_rf
 
-    # 위험등급
     def risk_grade(prob):
         if prob > 0.7:
             return "High"
@@ -72,7 +87,6 @@ if uploaded_file:
     }
     df["risk_color"] = df["risk_level"].map(risk_color)
 
-    # 탭 만들기
     tab1, tab2, tab3, tab4 = st.tabs(["🗺️ 지도 시각화", "🌳 RandomForest", "📈 LogisticRegression", "🚀 XGBoost"])
 
     with tab1:
@@ -159,6 +173,6 @@ if uploaded_file:
     with tab4:
         st.header("XGBoost 결과")
         show_model_results(xgb_model, y, y_pred_xgb, y_proba_xgb, "XGBoost", xgb_model.feature_importances_)
+
 else:
     st.info("먼저 데이터를 업로드하세요.")
-
